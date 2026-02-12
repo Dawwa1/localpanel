@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# $1 = dirName
+# $2 = ip
+# $3 = hostname | optional
+
+if [ "$(id -u)" != "0" ]; then
+    echo "This script must be run as root."
+    exit 1
+fi
+
+if [ -d "/var/www/$1" ]; then
+    break
+fi
+
+mkdir "/var/www/$1"
+touch "/etc/apache2/sites-available/$1.conf"
+
+cat > /etc/apache2/sites-available/$1.conf << EOM
+<VirtualHost $2:80>
+    DocumentRoot /var/www/$1
+
+    #LogLevel info
+    #ErrorLog /var/www/localpanel/error.log
+    #CustomLog /var/www/localpanel/access.log combined
+</VirtualHost>
+EOM
+
+a2ensite "$1.conf"
+echo "Reload Apache!";
