@@ -27,7 +27,7 @@ if (count($_GET) > 0){
         <div id="top">
             <h1>LocalPanel</h1>
             <?php
-            if ($shlRet){"<h2>$shlRet</h2>";}
+            if (isset($shlRet)){"<h2>$shlRet</h2>";}
             ?>
         </div>
 
