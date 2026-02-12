@@ -60,6 +60,7 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
     box-sizing: border-box;
+    padding: 10px;
 }
 #panel #mid #sites ul{
     display: flex; 
@@ -74,17 +75,17 @@ body {
 }
 #panel #mid #sites ul li{
     width: 150px;
-    height: 180px;
+    height: fit-content;
     display: flex;
     flex-direction: column;
     text-align: center;
     background-color: #33333AFF;
     padding: 5px;
     border-radius: 15px;
-    transition: transform 0.25s ease-in-out;
+    transition: background-color 0.25s ease-in-out;
 }
 #panel #mid #sites ul li:hover{
-    transform: scale(1.05);
+    background-color: rgb(86, 86, 92);
 }
 #panel #mid #sites ul button{
     border: none;
