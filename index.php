@@ -57,7 +57,6 @@ if (count($_GET) > 0){
             </div>
             <div id="create-vhost-panel" style="display:none;">
                 <form action="/" method="get">
-                    <input type="text" name="dispName" id="dispname-fld" placeholder="Site Display Name: " required>
                     <input type="text" name="dirName" id="dirname-fld" placeholder="Site Directory Name: " required>
                     <input type="text" name="ip" id="ip" placeholder="Site IP (ex: 127.0.0.1): " required>
                     <input type="submit" id="sbmt" value="Create VirtualHost">
