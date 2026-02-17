@@ -6,7 +6,7 @@ error_reporting(E_ALL);
 
 $shlRet = null;
 if (count($_GET) > 0 && isset($_GET['dirName'], $_GET['ip'])){
-    if (preg_match("^127\.\d\.\d\.\d$", $_GET['ip'])){
+    if (preg_match("^127\.\d\.\d\.\d$^", $_GET['ip'])){
         $shlRet = shell_exec("sudo ./create_vhost " . $_GET['dirName'] . " " . $_GET['ip']);
     }
 }
