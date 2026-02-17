@@ -102,19 +102,23 @@ body {
     justify-content: center;
 
     width: 40%;
-    height: 80%;
+    height: 90%;
     background-color: #000;
     border-radius: 15px;
 }
 #panel #mid form {
     display: flex;
     flex-direction: column;
+    text-align: center;
 }
 #panel #mid form input {
     padding: 10px;
     margin: 10px auto;
     border-radius: 10px;
     border: none;
+}
+input[type='text']{
+    display: none;
 }
 
 

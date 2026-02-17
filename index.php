@@ -4,10 +4,23 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-
 $shlRet = null;
-if (count($_GET) > 0){
-    $shlRet = shell_exec("sudo ./create_vhost " . $_GET['dirName'] . " " . $_GET['ip']);
+if (count($_GET) > 0 && isset($_GET['dirName'], $_GET['ip'])){
+    if (preg_match("^127\.\d\.\d\.\d$", $_GET['ip'])){
+        $shlRet = shell_exec("sudo ./create_vhost " . $_GET['dirName'] . " " . $_GET['ip']);
+    }
+}
+if (isset($_GET['db-fld'])){
+    $dbStr = explode("/", $_GET['db-fld']);
+    $dbN = trim($dbStr[0]);
+    $dbU = isset($dbStr[1]) ? trim($dbStr[1]) : $dbN;
+    $dbP = isset($dbStr[2]) ? trim($dbStr[2]) : $dbN;
+    $db_con = new mysqli("localhost", "root", "");
+    $db_con->query("CREATE USER '$dbU'@'localhost' IDENTIFIED BY '$dbP'");
+    $db_con->query("CREATE DATABASE $dbN");
+    $db_con->query("GRANT ALL ON $dbN.* TO '$dbU'@'localhost'");
+    $db_con->close();
+    var_dump($shlRet);
 }
 ?>
 
@@ -18,9 +31,7 @@ if (count($_GET) > 0){
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LocalPanel</title>
     <link rel="stylesheet" href="index.css">
-    <script>
-    // credit to http://yuryi.com
-    var t,w=window,d=document,shl=!1,h=d.getElementsByTagName("HEAD")[0],m=0;function getWW(){return w.innerWidth}function getWH(){return w.innerHeight}function getDW(){return d.body.clientWidth}function getDH(){return d.body.scrollHeight}function gid(e){return d.getElementById(e)}function gcn(e){return d.getElementsByClassName(e)}function gtn(e){return d.getElementsByTagName(e)}function out(e){return d.write(e)}function showBr(e){getWW()<e?out("<br>"):out("&nbsp;|&nbsp;")}function ssset(e,n){return sessionStorage.setItem(e,n)}function ssget(e){return sessionStorage.getItem(e)}function ssrm(e){return sessionStorage.removeItem(e)}function callAPI(e,n,o,r=null){let i=new XMLHttpRequest;if(i.open(n,o,!0),i.setRequestHeader("Content-Type","application/json;charset=UTF-8"),i.onload=()=>e(i),null!=r){i.send(JSON.stringify({data:r}));return}i.send()}function random(e,n){return Math.floor(Math.random()*(n-e+1))+e}function addCSS(e){var n=d.createElement("style");n.type="text/css",n.styleSheet?n.styleSheet.cssText=e:n.appendChild(d.createTextNode(e)),h.appendChild(n)}function eqHeight(e){for(var n=0,o=gcn(e),r=0;r<o.length;r++){var i=o[r].getBoundingClientRect();i.height>n&&(n=i.height)}for(var r=0;r<o.length;r++)o[r].style.height=n+"px"}function toTop(){0!=d.body.scrollTop||0!=d.documentElement.scrollTop?(w.scrollBy(0,-80),t=setTimeout("toTop()",5)):clearTimeout(t)}function addOnLoad(e){var n=w.onload;"function"!=typeof w.onload?w.onload=e:w.onload=function(){n&&n(),e()}}function addOnResize(e){var n=w.onresize;"function"!=typeof w.onresize?w.onresize=e:w.onresize=function(){n&&n(),e()}}function addGoogleFonts(e){for(var n=e.split("|"),o=0;o<n.length;o++){var r=d.createElement("link");r.rel="stylesheet",r.href="https://fonts.googleapis.com/css?family="+n[o],h.appendChild(r)}}var t,w=window,d=document,shl=!1,h=d.getElementsByTagName("HEAD")[0],m=0;</script>
+    <script src="fw.js"></script>
 </head>
 <body>
     <div id="panel">
@@ -38,10 +49,6 @@ if (count($_GET) > 0){
                     $sites = shell_exec('ls /var/www');
                     $op = preg_split('/\s+/', $sites, -1, PREG_SPLIT_NO_EMPTY);
 
-                    //for ($i=0;$i<10;$i++){
-                    //    array_push($op, bin2hex(random_bytes(5)));
-                    //}
-
                     foreach ($op as $s) {
                         echo "
                         <li>
@@ -57,8 +64,19 @@ if (count($_GET) > 0){
             </div>
             <div id="create-vhost-panel" style="display:none;">
                 <form action="/" method="get">
-                    <input type="text" name="dirName" id="dirname-fld" placeholder="Site Directory Name: " required>
-                    <input type="text" name="ip" id="ip" placeholder="Site IP (ex: 127.0.0.1): " required>
+                    <label for="vh-chkbx">Create Virtual Host?</label>
+                    <input type="checkbox" name="vh-chkbx" id="vh-chkbx" value="1">
+                    
+                    <input class="vh" type="text" name="dirName" id="dirname-fld" placeholder="Site Directory Name: ">
+                    <input class="vh" type="text" name="ip" id="ip" placeholder="Site IP (ex: 127.0.0.1): ">
+
+                    <label for="db-chkbx">Create Database?</label>
+                    <input type="checkbox" name="db-chkbx" id="db-chkbx" value="1">
+
+                    <input type="text" class="db" name="db-fld" id="db-fld" placeholder="Name / User / Pass">
+                    <script>
+                        
+                    </script>
                     <input type="submit" id="sbmt" value="Create VirtualHost">
                 </form>
             </div>
@@ -79,5 +97,36 @@ if (count($_GET) > 0){
             </ul>
         </div>
     </div>
+<script>
+    function odl(){
+        let db_chk = gid("db-chkbx");
+        let vh_chk = gid("vh-chkbx");
+        let db = [...document.querySelectorAll(".db")];
+        let vh = [...document.querySelectorAll(".vh")];
+        db_chk.addEventListener('change', function(){
+            db.forEach(e => {
+                if (db_chk.checked){
+                    db.forEach(e => {
+                        e.style.display="flex";
+                    });
+                }else{
+                    e.style.display="none";
+                }
+            });
+        });
+        vh_chk.addEventListener('change', function(){
+            vh.forEach(e => {
+                if (vh_chk.checked){
+                    vh.forEach(e => {
+                        e.style.display="flex";
+                    });
+                }else{
+                    e.style.display="none";
+                }
+            });
+        });
+    }
+    addOnLoad(odl);
+</script>
 </body>
 </html>
