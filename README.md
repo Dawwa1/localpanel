@@ -4,9 +4,15 @@ A simple panel for your development Apache2 sites that you host on 127.0.0.0/8
 
 ### To install it:
 ```
-> git clone https://github.com/Dawwa1/localpanel
-> chmod -R 755 localpanel/ && chown -R www-data:www-data localpanel/ && mv localpanel /var/www
+git clone https://github.com/Dawwa1/localpanel
+chmod -R 775 localpanel/ && chown -R www-data:www-data localpanel/ && mv localpanel /var/www
 ```
+
+#### Also add the following line to `sudo visudo`
+```
+www-data ALL=(ALL) NOPASSWD: /bin/bash /var/www/localpanel/create_vhost
+```
+
 ### Access
 Now you can access the panel at http://localhost/localpanel! 
 
