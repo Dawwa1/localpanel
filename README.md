@@ -8,16 +8,24 @@ git clone https://github.com/Dawwa1/localpanel
 chmod -R 775 localpanel/ && chown -R www-data:www-data localpanel/ && mv localpanel /var/www
 ```
 
-#### Also add the following line to `sudo visudo`
+### How to use it:
+
+#### First, add the following line to `sudo visudo`
 ```
-www-data ALL=(ALL) NOPASSWD: /bin/bash /var/www/localpanel/create_vhost
+{apache_user} ALL=(ALL) NOPASSWD: /bin/bash /var/www/localpanel/create_vhost
 ```
+`{apache_user}` should be the user that Apache uses.
+- On **Debian**-based distro's, it will be `www-data`
+- On **Fedora**-based distro's, it will be `apache`
+
+---
+
+`index.php` automatically scrapes `/var/www` for the list, directing you to the folder (will add database scraping later).
+When you create a virtual host (bottom right button), `create_vhost` also now creates an Apache config file as well as taking an argument for a domain in `/etc/hosts`!
 
 ### Access
-Now you can access the panel at http://localhost/localpanel! 
-
-#### Hostname
-If you want to access it by just the name, add a VirtualHost in `/etc/apache2/sites-enabled/localpanel.conf` and add the corresponding name and IP to `/etc/hosts`
+Add a VirtualHost in your apache config, and now you can access the panel @ `http://localhost/localpanel`!
+You can also add the IP and a domain to `/etc/hosts` to access it @, for example, `http://localhost.dd`
 
 
 ## Errors
