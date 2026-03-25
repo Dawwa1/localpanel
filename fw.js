@@ -1,8 +1,17 @@
-var t, w = window,
-    d = document,
-    shl = false,
-    h = d.getElementsByTagName("HEAD")[0],
-    m = 0;
+function modal(content){
+    let ul = gid('modal-list');
+
+    var li = document.createElement('li');
+    var modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = content;
+
+    li.appendChild(modal);
+    ul.appendChild(li);
+    setTimeout(()=>{
+        ul.removeChild(li);
+    }, 5000)
+}
 
 function getWW() {
     return w.innerWidth;
@@ -28,6 +37,15 @@ function gcn(v) {
     return d.getElementsByClassName(v);
 }
 
+function isset(v){
+    if (typeof v === 'undefined' || v === null){
+        return false;
+    } else if (Array.isArray(v)){
+        return v.length > 0;
+    }
+    return true;
+}
+
 function gtn(v) {
     return d.getElementsByTagName(v);
 }
@@ -44,29 +62,62 @@ function ssset(k, v){
     return sessionStorage.setItem(k, v);
 }
 
-function ssget(k){
-    return sessionStorage.getItem(k);
+function ssget(k=null){
+    if (k){ return sessionStorage.getItem(k); }
+    else {
+        let characterData = {};
+
+        let c=0;
+        while (sessionStorage.key(c) != undefined || sessionStorage.key(c) != null){
+            let k = sessionStorage.key(c);
+            let v = sessionStorage.getItem(k);
+            characterData[`${k}`] = v;
+            c++;
+        }
+
+        return characterData;
+    }
+    
+}
+
+function ssclear(){
+    return sessionStorage.clear();
 }
 
 function ssrm(k){
     return sessionStorage.removeItem(k);
 }
 
-function callAPI(onload, method, endpoint, data=null){
+function callAPI(onload, method, endpoint, action, data=null){
     const xhr = new XMLHttpRequest();
     xhr.open(method, endpoint, true);
     xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
-    xhr.onload = () => onload(xhr);
+    if (onload != null){
+        xhr.onload = () => onload(xhr);
+    }
     if (data != null) { 
-        const payload = { data: data }
+        const payload = {data: data, action: action}
+        //console.log(payload);
         xhr.send(JSON.stringify(payload));
         return;
     }
     xhr.send();
 }
 
-function random(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+function random(min, max, decimalPlaces=0){
+    const rand = Math.random() * (max - min) + min;
+    const fixed = rand.toFixed(decimalPlaces);
+    return Number.parseFloat(fixed);
+}
+
+// has a {percentChance}% chance of returning true
+function chance(percentChance){
+    let chance = random(0, 100);
+    if (chance < percentChance){
+        return true;
+    } else{
+        return false
+    }
 }
 
 function addCSS(css) {

@@ -1,22 +1,92 @@
 #!/bin/bash
 
-# $1 = dirName
-# $2 = ip
+# $1 = site name / directory name
+# $2 = IPv4 address
+# $3 = domain name (example.dd)
+
+set -euo pipefail
+
+usage() {
+    echo "Usage: $0 <site-name> <ipv4> <domain>"
+    exit 1
+}
+
+is_valid_ipv4() {
+    local ip="$1"
+    local IFS=.
+    local -a octets
+
+    [[ "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]] || return 1
+    read -r -a octets <<< "$ip"
+
+    for octet in "${octets[@]}"; do
+        ((octet >= 0 && octet <= 255)) || return 1
+    done
+
+    return 0
+}
+
+is_valid_domain() {
+    local domain="$1"
+    [[ "$domain" =~ ^[A-Za-z0-9-]+\.[A-Za-z]{2,}$ ]]
+}
+
+upsert_hosts_entry() {
+    local ip="$1"
+    local domain="$2"
+
+    # Append-only by request: no duplicate detection/removal.
+    printf "%s\t%s\n" "$ip" "$domain" >> /etc/hosts
+}
 
 if [ "$(id -u)" != "0" ]; then
     echo "This script must be run as root."
     exit 1
 fi
 
-if [ ! -d "/var/www/$1" ]; then
-    mkdir "/var/www/$1"
+site_name="${1:-}"
+vhost_ip="${2:-}"
+domain_name="${3:-}"
+
+[ -n "$site_name" ] && [ -n "$vhost_ip" ] && [ -n "$domain_name" ] || usage
+
+if [[ ! "$site_name" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    echo "Invalid site name: '$site_name'"
+    echo "Allowed characters: letters, numbers, dot, underscore, dash"
+    exit 1
 fi
 
-touch "/etc/apache2/sites-available/$1.conf"
+if ! is_valid_ipv4 "$vhost_ip"; then
+    echo "Invalid IPv4 address: '$vhost_ip'"
+    exit 1
+fi
 
-cat > /etc/apache2/sites-available/$1.conf << EOM
-<VirtualHost $2:80>
-    DocumentRoot /var/www/$1
+if ! is_valid_domain "$domain_name"; then
+    echo "Invalid domain: '$domain_name' (expected format like example.dd)"
+    exit 1
+fi
+
+docroot="/var/www/$site_name"
+
+if [ -d "/etc/apache2/sites-available" ]; then
+    apache_layout="debian"
+    conf_path="/etc/apache2/sites-available/$site_name.conf"
+    apache_service="apache2"
+elif [ -d "/etc/httpd/conf.d" ]; then
+    apache_layout="fedora"
+    conf_path="/etc/httpd/conf.d/$site_name.conf"
+    apache_service="httpd"
+else
+    echo "Could not detect Apache config layout (expected /etc/apache2 or /etc/httpd)."
+    exit 1
+fi
+
+mkdir -p "$docroot"
+
+cat > "$conf_path" <<EOM
+<VirtualHost ${vhost_ip}:80>
+    ServerName $domain_name
+    DocumentRoot $docroot
 
     #LogLevel info
     #ErrorLog /var/www/localpanel/error.log
@@ -24,5 +94,26 @@ cat > /etc/apache2/sites-available/$1.conf << EOM
 </VirtualHost>
 EOM
 
-a2ensite "$1.conf"
-echo "Reload Apache!";
+upsert_hosts_entry "$vhost_ip" "$domain_name"
+
+if [ "$apache_layout" = "debian" ] && command -v a2ensite >/dev/null 2>&1; then
+    a2ensite "$site_name.conf" >/dev/null
+fi
+
+if command -v apachectl >/dev/null 2>&1; then
+    apachectl -t
+elif command -v apache2ctl >/dev/null 2>&1; then
+    apache2ctl -t
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
+    if ! systemctl reload "$apache_service"; then
+        systemctl restart "$apache_service"
+    fi
+else
+    service "$apache_service" restart
+fi
+
+echo "Virtual host written to: $conf_path"
+echo "Hosts entry set: $vhost_ip $domain_name"
+echo "Apache service reloaded/restarted: $apache_service"
