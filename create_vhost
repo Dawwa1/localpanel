@@ -35,7 +35,6 @@ upsert_hosts_entry() {
     local ip="$1"
     local domain="$2"
 
-    # Append-only by request: no duplicate detection/removal.
     printf "%s\t%s\n" "$ip" "$domain" >> /etc/hosts
 }
 

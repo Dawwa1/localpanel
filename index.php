@@ -4,8 +4,6 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-define("SUDO_PASS", "");
-
 class DBO{
     protected static $inst;
     private $dbc;
