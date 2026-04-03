@@ -351,6 +351,9 @@ if (isset($_GET['db-fld']) && $_GET['db-chkbx'] == "1") {
             background-color: #000;
             border-radius: 15px;
         }
+        #panel #mid #create-vhost-panel input[type="text"]{
+            display: none;
+        }
         #panel #mid form {
             display: flex;
             flex-direction: column;
