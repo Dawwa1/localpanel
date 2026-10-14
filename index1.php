@@ -1,11 +1,12 @@
 <?php
 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+require_once "config.php";
 
-const ADMIN_DB_USER = "admin";
-const ADMIN_DB_PASS = "1122";
+if(DEBUG) {
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+    error_reporting(E_ALL);
+}
 
 class DBO
 {
@@ -13,7 +14,7 @@ class DBO
     private $dbc;
     private function __construct()
     {
-        $this->dbc = new mysqli("localhost", "locpan", "locpan", "locpan");
+        $this->dbc = new mysqli(MAIN_DB['host'], MAIN_DB['user'], MAIN_DB['pass'], MAIN_DB['dbname']);
         if ($this->dbc->connect_error) {
             die("Connection failed: " . $this->dbc->connect_error);
         }
@@ -39,8 +40,7 @@ class DBO
 function liveExecuteCommand($cmd)
 {
 
-    while (@ob_end_flush())
-        ; // end all output buffers if any
+    while (@ob_end_flush()); // end all output buffers if any
     $proc = popen("$cmd 2>&1 ; echo Exit status : $?", 'r');
     $live_output = "";
     $complete_output = "";
@@ -65,7 +65,17 @@ function siteExists($dirName) {
 function addSite($dirName, $ip, $dom, $createvh = true, $hiddenOnCreate = false){
     $dbo = DBO::getInstance();
     if ($createvh) {
-        $shlRet = liveExecuteCommand("sudo ./create_vhost $dirName $ip $dom");
+        $script = __DIR__ . '/bin/localpanel';
+        $shlRet = liveExecuteCommand(sprintf(
+            'sudo %s create %s %s %s',
+            escapeshellarg($script),
+            escapeshellarg($dirName),
+            escapeshellarg($ip),
+            escapeshellarg($dom)
+        ));
+        if ($shlRet['exit_status'] !== 0) {
+            return $shlRet;
+        }
     }
     if (!siteExists($dirName)) {
         $dbo->q("INSERT INTO sites (name, ip, dom, hidden) VALUES ('$dirName', '$ip', '$dom', ".($hiddenOnCreate ? "1" : "0").")");
@@ -85,7 +95,7 @@ $shlRet = null;
 
 if (count($_GET) > 1) {
     if (isset($_GET['dirName'], $_GET['ip'], $_GET['dom'])){
-        if (preg_match("^127\.\d\.\d\.\d$^", $_GET['ip'])) {
+        if (preg_match('/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/', $_GET['ip'])) {
             $shlRet = addSite($_GET['dirName'], $_GET['ip'], $_GET['dom'], $_GET['vh-chkbx'] == "1", isset($_GET['hidden']) && $_GET['hidden'] == "1");
         } else {
             $shlRet = ['exit_status' => 1, 'output' => "Invalid IP address format. Please use the format 127.x.x.x"];
@@ -308,12 +318,14 @@ if (isset($_GET['db-fld']) && $_GET['db-chkbx'] == "1") {
         .c-menu{
             position: fixed;
             width: 150px;
-            height: 150px;
+            height: fit-content;
             background-color: #000;
             border: 1px solid #fff;
             border-radius: 10px;
             padding: 5px;
             z-index: 1000;
+            padding: 10px;
+            margin-top: 2px;
         }
         .c-menu.hide{
             display: none;
@@ -328,6 +340,10 @@ if (isset($_GET['db-fld']) && $_GET['db-chkbx'] == "1") {
             width: 100%;
             border-radius: 10px;
             margin-top: 5px;
+        }
+        .c-menu-ip{
+            color: #c62020;
+            font-weight: 900;
         }
         #panel #mid #sites ul li:hover{
             background-color: rgb(86, 86, 92);
@@ -441,7 +457,7 @@ if (isset($_GET['db-fld']) && $_GET['db-chkbx'] == "1") {
                 <ul>
                     <?php
                     $dbo = DBO::getInstance();
-                    $untrackedSites = glob("/var/www/*", GLOB_ONLYDIR);
+                    $untrackedSites = glob(WEB_DIR_PATH . "*", GLOB_ONLYDIR);
                     $utIgnore = ["html", "cgi-bin", "phpmyadmin"];
                     $untrackedSites = array_filter($untrackedSites, function($dir) use ($utIgnore) {
                         return !in_array(basename($dir), $utIgnore);
@@ -462,6 +478,7 @@ if (isset($_GET['db-fld']) && $_GET['db-chkbx'] == "1") {
                             </button>
 
                             <label>$name</label>
+                            <label class=\"c-menu-ip\">$ip</label>
                             <div class=\"c-menu hide\">
                                 <button class=\"c-menu-btn\" onclick=\"hideSite('$name')\">Hide Site</button>
                             </div>
@@ -478,6 +495,7 @@ if (isset($_GET['db-fld']) && $_GET['db-chkbx'] == "1") {
                                 </button>
 
                                 <label>$siteName</label>
+                                <label class=\"c-menu-ip\">Unknown IP</label>
                                 <div class=\"c-menu hide\">
                                     <button class=\"c-menu-btn\" onclick=\"showTrackPopup('$siteName')\">Track Site</button>
                                     <button class=\"c-menu-btn\" onclick=\"hideSite('$siteName')\">Hide Site</button>
@@ -566,6 +584,11 @@ if (isset($_GET['db-fld']) && $_GET['db-chkbx'] == "1") {
                     <button id="add-vhost"
                         onclick="'none'==gid('create-vhost-panel').style.display?(gid('create-vhost-panel').style.display='flex',gid('sites').style.display='none'):(gid('create-vhost-panel').style.display='none',gid('sites').style.display='flex'); return false;">
                         <img src="imgs/add-vhost.svg" alt="add vhost">
+                    </button>
+                </li>
+                <li>
+                    <button id="delete-vhost">
+                        
                     </button>
                 </li>
             </ul>
