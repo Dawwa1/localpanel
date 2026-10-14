@@ -14,6 +14,7 @@ Usage:
   {$name} create <site-name> <ipv4> <domain> [--doc-root <path>] | Creates a new virtual host and adds an entry to /etc/hosts.
   {$name} update <site-name> <ipv4> <domain> [--doc-root <path>] | Updates an existing virtual host and updates the entry in /etc/hosts.
   {$name} delete <site-name> [--full-delete <true/false>] | Deletes an existing virtual host and removes the entry from /etc/hosts. The document root is preserved by default, but can be deleted with the --full-delete option.
+  {$name} restart | Restarts the Apache service.
 
 USAGE);
 }
@@ -91,7 +92,7 @@ function validateValues(string $siteName, string $ip, string $domain): void
 /**
  * @return array{layout: string, path: string, service: string}
  */
-function detectApache(string $siteName): array
+function detectApache(?string $siteName): array
 {
     if (is_dir('/etc/apache2/sites-available')) {
         return [
@@ -471,16 +472,24 @@ if (in_array($action, ['create', 'update'], true)) {
 
     $siteName = $arguments[1];
     $docRoot = '';
-} else {
-    usage($scriptName);
-    exit(1);
 }
 
-$config = detectApache($siteName);
-if ($action === 'create') {
-    createVhost($config, $siteName, $ip, $domain, $docRoot);
-} elseif ($action === 'update') {
-    updateVhost($config, $siteName, $ip, $domain, $docRoot);
-} else {
-    deleteVhost($config, $siteName, $fullDelete);
+$config = @detectApache($siteName);
+switch ($action) {
+    case 'create':
+        createVhost($config, $siteName, $ip, $domain, $docRoot);
+        break;
+    case 'update':
+        updateVhost($config, $siteName, $ip, $domain, $docRoot);
+        break;
+    case 'delete':
+        deleteVhost($config, $siteName, $fullDelete);
+        break;
+    case 'restart':
+        reloadApache($config['service']);
+        echo "Apache service restarted: {$config['service']}\n";
+        break;
+    default:
+        usage($scriptName);
+        exit(1);
 }
