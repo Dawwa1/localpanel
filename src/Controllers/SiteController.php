@@ -2,20 +2,27 @@
 
 namespace Localpanel\Controllers;
 
-use Localpanel\View;
+use Localpanel\JsonResponse;
+use Localpanel\Models\RunModel;
 use Localpanel\Models\SiteModel;
 use Psr\Http\Message\ServerRequestInterface;
 use React\Http\Message\Response;
+use React\Promise\PromiseInterface;
 
 class SiteController{
 
-    public function create(ServerRequestInterface $request): \React\Promise\PromiseInterface
+    public function test(ServerRequestInterface $request): Response
+    {
+        return new Response(200, [
+            'Content-Type' => 'text/plain; charset=utf-8',
+            'Cache-Control' => 'no-cache',
+            'X-Accel-Buffering' => 'no',
+        ], RunModel::pingTest('google.com'));
+    }
+
+    public function create(ServerRequestInterface $request): PromiseInterface
     {
         $data = json_decode((string)$request->getBody(), true);
-
-        if (!isset($data['name'], $data['ip'], $data['domain'], $data['hidden'], $data['root_path'], $data['conf_path'])) {
-            throw new \InvalidArgumentException('Missing required fields in request body');
-        }
 
         return SiteModel::createSite(
             $data['name'],
@@ -24,8 +31,13 @@ class SiteController{
             (bool)$data['hidden'],
             $data['root_path'],
             $data['conf_path']
-        )->then(function ($site) {
+        )->then(function ($site) use ($data) {
+            if (!isset($data['name'], $data['ip'], $data['domain'], $data['hidden'], $data['root_path'], $data['conf_path'])) {
+                return JsonResponse::error('Missing required fields', 400, 'MISSING_FIELDS');
+            }
+
             return new Response(201, ['Content-Type' => 'application/json'], json_encode([
+
                 'message' => 'Site created successfully',
                 'site' => [
                     'name' => $site->name,
@@ -45,12 +57,13 @@ class SiteController{
         $identifier = $request->getQueryParams()['id'] ?? null;
         $value = $request->getQueryParams()['value'] ?? null;
 
-        if ($identifier === null || $value === null) {
-            throw new \InvalidArgumentException('Missing required query parameters: id and value');
-        }
         return SiteModel::getSite($identifier, $value)->then(function ($site) {
             if ($site === null) {
-                return ['error' => 'Site not found'];
+                return JsonResponse::error(404, 'Site not found', 'SITE_NOT_FOUND');
+            }
+
+            if ($identifier === null || $value === null) {
+                return JsonResponse::error('Missing required query parameters: id and value', 400, 'MISSING_PARAMS');
             }
 
             $jsonData = json_encode([

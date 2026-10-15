@@ -5,7 +5,6 @@ require __DIR__ . '/vendor/autoload.php';
 use FrameworkX\App;
 use FrameworkX\FilesystemHandler;
 use Localpanel\Controllers\HomeController;
-use Localpanel\Controllers\RunController;
 use Localpanel\Controllers\SiteController;
 
 require_once "config.php";
@@ -29,11 +28,6 @@ $app->get('/assets/{path:.+}', $assets);
 $app->get('/', [new HomeController(), 'render']);
 //$app->get('/manage/{name})', [new ManageController(), 'render']);
 
-$app->get('/debug', function () {
-    phpinfo();
-    exit;
-});
-
 //api endpoints
 $app->get('/api/site/create', [new SiteController(), 'create']);
 //$app->post('/api/site/delete', [new SiteController(), 'render']);
@@ -41,7 +35,13 @@ $app->get('/api/site/create', [new SiteController(), 'create']);
 $app->get('/api/site/get', [new SiteController(), 'get']);
 
 // handles /bin/localpanel commands
-$app->post('/api/run/{command}', [new RunController(), 'render']);
+$app->post('/api/run/{command}', [new SiteController(), 'test']);
+//$app->post('/api/run/test', [new SiteController(), 'test']);
+
+$app->get('/debug', function () {
+    phpinfo();
+    exit;
+});
 
 $app->run();
 

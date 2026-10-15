@@ -485,6 +485,56 @@
 </div>
 
 <script nonce="<?= $nonce ?>">
+    const form = document.querySelector('.create-cont form');
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        let formData = new FormData(form);
+
+        const subbtn = form.querySelector('button[type="submit"]');
+        subbtn.disabled = true;
+
+        fetch("/api/run/test", {
+                method: 'POST',
+                body: formData
+            })
+            .then(async response => {
+                if (!response.ok) {
+                    throw new Error(`Request failed with status ${response.status}`);
+                }
+
+                const terminal = document.querySelector('#create-terminal code');
+                terminal.textContent = '$: ';
+
+                if (!response.body) {
+                    throw new Error('Streaming response is not supported by this browser');
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const {value, done} = await reader.read();
+                    if (done) {
+                        terminal.textContent += decoder.decode();
+                        break;
+                    }
+
+                    terminal.textContent += decoder.decode(value, {stream: true});
+                }
+            })
+            .catch(error => {
+                const terminal = document.querySelector('#create-terminal code');
+                terminal.textContent += `\n$: ${error.message}`;
+                console.error('Error:', error);
+            })
+            .finally(() => {
+                subbtn.disabled = false;
+            });
+    })
+
+</script>
+
+<script nonce="<?= $nonce ?>">
     function toggleDatabaseFields(isChecked) {
         const databaseFields = document.getElementById('db-create');
 
