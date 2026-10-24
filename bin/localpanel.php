@@ -13,7 +13,7 @@ function usage(string $name): void
 Usage:
   {$name} create <site-name> <ipv4> <domain> [--doc-root <path>] | Creates a new virtual host and adds an entry to /etc/hosts.
   {$name} update <site-name> <ipv4> <domain> [--doc-root <path>] | Updates an existing virtual host and updates the entry in /etc/hosts.
-  {$name} delete <site-name> [--full-delete <true/false>] | Deletes an existing virtual host and removes the entry from /etc/hosts. The document root is preserved by default, but can be deleted with the --full-delete option.
+  {$name} delete <site-name> [--full-delete] | Deletes an existing virtual host and removes the entry from /etc/hosts. The document root is preserved by default, but can be deleted with the --full-delete option.
   {$name} restart | Restarts the Apache service.
 
 USAGE);
@@ -98,6 +98,7 @@ function detectApache(?string $siteName): array
         return [
             'layout' => 'debian',
             'path' => "/etc/apache2/sites-available/{$siteName}.conf",
+            'root' => WEB_DIR_PATH,
             'service' => 'apache2',
         ];
     }
@@ -106,6 +107,7 @@ function detectApache(?string $siteName): array
         return [
             'layout' => 'fedora',
             'path' => "/etc/httpd/conf.d/{$siteName}.conf",
+            'root' => WEB_DIR_PATH,
             'service' => 'httpd',
         ];
     }
@@ -436,60 +438,63 @@ function parseDocRoot(array $arguments, int $offset): string
     return $arguments[$offset + 1];
 }
 
-if (function_exists('posix_geteuid') && posix_geteuid() !== 0) {
-    fail('This script must be run as root.');
-}
+if (php_sapi_name() === 'cli') {
 
-$arguments = array_slice($_SERVER['argv'], 1);
-$scriptName = basename($_SERVER['argv'][0]);
-if (count($arguments) < 1) {
-    usage($scriptName);
-    exit(1);
-}
+    if (function_exists('posix_geteuid') && posix_geteuid() !== 0) {
+        fail('This script must be run as root.');
+    }
 
-$action = $arguments[0];
-if (in_array($action, ['create', 'update'], true)) {
-    if (count($arguments) < 4) {
+    $arguments = array_slice($_SERVER['argv'], 1);
+    $scriptName = basename($_SERVER['argv'][0]);
+    if (count($arguments) < 1) {
         usage($scriptName);
         exit(1);
     }
 
-    $siteName = $arguments[1];
-    $ip = $arguments[2];
-    $domain = $arguments[3];
-    $docRoot = parseDocRoot($arguments, 4);
-} elseif ($action === 'delete') {
-    $fullDelete = false;
-    if (count($arguments) >= 2 && str_starts_with($arguments[2], '--full-delete')) {
-        $val = explode('=', $arguments[2], 2)[1] ?? '';
-        $fullDelete = filter_var($val, FILTER_VALIDATE_BOOLEAN);
+    $action = $arguments[0];
+    if (in_array($action, ['create', 'update'], true)) {
+        if (count($arguments) < 4) {
+            usage($scriptName);
+            exit(1);
+        }
+
+        $siteName = $arguments[1];
+        $ip = $arguments[2];
+        $domain = $arguments[3];
+        $docRoot = parseDocRoot($arguments, 4);
+    } elseif ($action === 'delete') {
+        $fullDelete = false;
+        if (count($arguments) >= 3 && str_starts_with($arguments[2], '--full-delete')) {
+            $val = explode('=', $arguments[2], 2)[1] ?? '';
+            $fullDelete = filter_var($val, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        if (count($arguments) < 2 || (count($arguments) > 2 && !str_starts_with($arguments[2], '--full-delete'))) {
+            usage($scriptName);
+            exit(1);
+        }
+
+        $siteName = $arguments[1];
+        $docRoot = '';
     }
 
-    if (count($arguments) < 2 || (count($arguments) > 2 && !str_starts_with($arguments[2], '--full-delete'))) {
-        usage($scriptName);
-        exit(1);
+    $config = @detectApache($siteName);
+    switch ($action) {
+        case 'create':
+            createVhost($config, $siteName, $ip, $domain, $docRoot);
+            break;
+        case 'update':
+            updateVhost($config, $siteName, $ip, $domain, $docRoot);
+            break;
+        case 'delete':
+            deleteVhost($config, $siteName, $fullDelete);
+            break;
+        case 'restart':
+            reloadApache($config['service']);
+            echo "Apache service restarted: {$config['service']}\n";
+            break;
+        default:
+            usage($scriptName);
+            exit(1);
     }
-
-    $siteName = $arguments[1];
-    $docRoot = '';
-}
-
-$config = @detectApache($siteName);
-switch ($action) {
-    case 'create':
-        createVhost($config, $siteName, $ip, $domain, $docRoot);
-        break;
-    case 'update':
-        updateVhost($config, $siteName, $ip, $domain, $docRoot);
-        break;
-    case 'delete':
-        deleteVhost($config, $siteName, $fullDelete);
-        break;
-    case 'restart':
-        reloadApache($config['service']);
-        echo "Apache service restarted: {$config['service']}\n";
-        break;
-    default:
-        usage($scriptName);
-        exit(1);
 }

@@ -20,6 +20,6 @@ class JsonResponse {
             'message' => $message,
             'code' => $code
         ];
-        return new Response($statusCode, ['Content-Type' => 'application/json'], json_encode($responseData));
+        return new Response($status, ['Content-Type' => 'application/json'], json_encode($responseData));
     }
 }

@@ -7,7 +7,7 @@ CREATE TABLE `sites` (
                              `ip` varchar(16) DEFAULT NULL,
                              `dom` varchar(32) DEFAULT NULL,
                              `hidden` tinyint(1) NOT NULL DEFAULT 1,
-                             `root_path` tinyblob DEFAULT NULL,
-                             `conf_path` tinyblob DEFAULT NULL,
+                             `root_path` tinytext DEFAULT NULL,
+                             `conf_path` tinytext DEFAULT NULL,
                              `date_created` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COLLATE=latin1_swedish_ci

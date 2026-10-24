@@ -2,10 +2,13 @@
 
 namespace Localpanel\Models;
 
+use Localpanel\JsonResponse;
+use React\Http\Message\Response;
 use React\MySQL\ConnectionInterface;
 use React\MySQL\Factory;
 use React\MySQL\QueryResult;
 use React\Promise\PromiseInterface;
+use function React\Async\await;
 use function React\Promise\reject;
 
 require_once __DIR__ . '/../../config.php';
@@ -49,19 +52,61 @@ class DatabaseModel
      * @param string $name The name of the site.
      * @param string $ip The IP address of the site.
      * @param string $domain The domain name of the site.
+     * @param string $dbName
+     * @param string $dbUser
+     * @param string $dbPass
      * @param bool $hidden Whether the site is hidden.
-     * @param string $root_path The root path of the site.
-     * @param string $conf_path The configuration path of the site.
-     *
-     * @return PromiseInterface The ID of the created site.
+     * @param string|null $root_path The root path of the site.
+     * @param string|null $conf_path The configuration path of the site.
+     * @return Response The ID of the created site.
      */
-    public function createSite(string $name, string $ip, string $domain, bool $hidden, string $root_path, string $conf_path): PromiseInterface
+    public function createSite(string $name, string $ip, string $domain, string $dbName,
+                               string $dbUser, string $dbPass, bool $hidden = false,
+                               ?string $root_path = null, ?string $conf_path = null): Response
     {
-        $query = 'INSERT INTO sites (name, ip, dom, hidden, root_path, conf_path) VALUES (?, ?, ?, ?, ?, ?)';
-        return $this->db->query($query, [$name, $ip, $domain, (int)$hidden, $root_path, $conf_path])
+        $ex = await($this->exists('ip', $ip));
+        if ($ex) {
+            return JsonResponse::error('Site with this IP already exists', 400, 'SITE_ALREADY_EXISTS');
+        }
+
+        $tableQuery = 'INSERT INTO sites (name, ip, dom, hidden, root_path, conf_path) VALUES (?, ?, ?, ?, ?, ?)';
+        $table = await($this->db->query($tableQuery, [$name, $ip, $domain, (int)$hidden, $root_path, $conf_path])
             ->then(static function (QueryResult $result): int {
-                return (int)$result->insertId;
-            });
+                return $result->insertId;
+            }));
+
+        $userQuery = "CREATE USER '$dbUser'@'localhost' IDENTIFIED VIA mysql_native_password USING '$dbPass';
+        GRANT USAGE ON *.* TO '$dbUser'@'localhost' REQUIRE NONE WITH MAX_QUERIES_PER_HOUR 0 MAX_CONNECTIONS_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 MAX_USER_CONNECTIONS 0;
+        CREATE DATABASE IF NOT EXISTS `$dbName`;GRANT ALL PRIVILEGES ON `$dbUser`.* TO '$dbUser'@'localhost';";
+
+        $queries = explode(';', $userQuery);
+        try {
+            foreach ($queries as $query) {
+                $query = trim($query);
+                if (!empty($query)) {
+                    await($this->db->query($query));
+                }
+            }
+        } catch (\Throwable $e) {
+            return JsonResponse::error('Failed to create database user or grant privileges: ' . $e->getMessage(), 500, 'DB_USER_CREATION_FAILED');
+        }
+
+        if ($table) {
+            return JsonResponse::success([
+                'message' => 'Site created successfully',
+                'site' => [
+                    'name' => $name,
+                    'ip' => $ip,
+                    'domain' => $domain,
+                    'hidden' => $hidden,
+                    'root_path' => $root_path,
+                    'conf_path' => $conf_path,
+                ],
+            ], 201);
+        } else {
+            return JsonResponse::error('Failed to create site', 500, 'SITE_CREATION_FAILED');
+        }
+
     }
 
     public function getAllSites(): PromiseInterface
@@ -106,12 +151,29 @@ class DatabaseModel
             });
     }
 
+    public function deleteSite(string $ip): PromiseInterface
+    {
+        return $this->db
+            ->query('DELETE FROM sites WHERE ip = ?', [$ip])
+            ->then(static function (QueryResult $result): bool {
+                return $result->affectedRows > 0;
+            });
+    }
+
     public function countSites(): PromiseInterface
     {
         return $this->db
             ->query('SELECT COUNT(*) AS site_count FROM sites')
             ->then(static function (QueryResult $result): int {
                 return (int) ($result->resultRows[0]['site_count'] ?? 0);
+            });
+    }
+
+    public function exists(string $identifier, mixed $value): PromiseInterface
+    {
+        return $this->getSite($identifier, $value)
+            ->then(static function (?array $siteData): bool {
+                return $siteData !== null;
             });
     }
 

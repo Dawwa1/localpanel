@@ -10,6 +10,9 @@ $db_storage = await($database->query("SELECT SUM(data_length + index_length) FRO
 ?>
 
 <header>
+    <div id="warn">
+        <img src="/assets/warn.svg" alt="warning">
+    </div>
     <div id="status-bars">
         <ul id="stat-list">
             <li id="servers-running">

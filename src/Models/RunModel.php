@@ -7,6 +7,8 @@ use React\Stream\ThroughStream;
 
 class RunModel {
 
+    private static string $baseCommand = __DIR__ . '/../../bin/localpanel.php';
+
     private static function run(string $cmd): ThroughStream {
         set_time_limit(0);
 
@@ -52,6 +54,31 @@ class RunModel {
         }
 
         return $output;
+    }
+
+    public static function createCmd(string $name, string $ipv4, string $domain, ?string $doc_root_path = null): ThroughStream
+    {
+        $cmd = sprintf(
+            'sudo %s create %s %s %s',
+            escapeshellarg(self::$baseCommand),
+            escapeshellarg($name),
+            escapeshellarg($ipv4),
+            escapeshellarg($domain)
+        );
+        if (isset($doc_root_path)) {
+            $cmd .= ' ' . escapeshellarg($doc_root_path);
+        }
+
+        return self::run($cmd);
+    }
+
+    public static function deleteCmd(string $ip, bool $delRoot = false): ThroughStream
+    {
+        $cmd = sprintf('sudo %s delete %s', escapeshellarg(self::$baseCommand), escapeshellarg($ip));
+        if ($delRoot) {
+            $cmd .= ' --full-delete';
+        }
+        return self::run($cmd);
     }
 
     public static function pingTest(string $ip): ThroughStream

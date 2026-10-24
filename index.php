@@ -9,14 +9,19 @@ use Localpanel\Controllers\SiteController;
 
 require_once "config.php";
 
+$app = new App();
+
 if(DEBUG) {
     ini_set('display_errors', 1);
     ini_set('display_startup_errors', 1);
     error_reporting(E_ALL);
+
+    // handles /bin/localpanel commands
+    $app->post('/api/run/{command}', [new SiteController(), 'test']);
 }
 
-$app = new App();
 $assets = new FilesystemHandler(__DIR__ . '/src/Views/assets/');
+$scripts = new FilesystemHandler(__DIR__ . '/src/Views/scripts/');
 
 $app->redirect('/database', DB_URL);
 
@@ -24,21 +29,27 @@ $app->redirect('/database', DB_URL);
 $app->get('/assets', $assets);
 $app->get('/assets/{path:.+}', $assets);
 
+$app->get('/scripts', $scripts);
+$app->get('/scripts/{path:.+}', $scripts);
+
 //pages
 $app->get('/', [new HomeController(), 'render']);
 //$app->get('/manage/{name})', [new ManageController(), 'render']);
+//$app->get('/logs', [new LogController(), 'logs']);
+//$app->get('/logs/{ip}', [new LogController(), 'logByIp']);
 
 //api endpoints
-$app->get('/api/site/create', [new SiteController(), 'create']);
-//$app->post('/api/site/delete', [new SiteController(), 'render']);
-//$app->post('/api/site/update', [new SiteController(), 'render']);
+
+// /api/site/create/{post data}
+$app->post('/api/site/create', [new SiteController(), 'create']);
+// /api/site/delete/127.0.0.2
+$app->delete('/api/site/delete/{ip}', [new SiteController(), 'delete']);
+// /api/site/update/127.0.0.2
+$app->put('/api/site/update/{ip}', [new SiteController(), 'update']);
+// /api/site/get?name=localpanel
 $app->get('/api/site/get', [new SiteController(), 'get']);
 
-// handles /bin/localpanel commands
-$app->post('/api/run/{command}', [new SiteController(), 'test']);
-//$app->post('/api/run/test', [new SiteController(), 'test']);
-
-$app->get('/debug', function () {
+$app->get('/info', function () {
     phpinfo();
     exit;
 });

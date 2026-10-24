@@ -83,12 +83,30 @@
             height: 100%;
             border-left: #232329 solid 5px;
             flex-direction: row;
-            justify-content: end;
             align-items: center;
             box-sizing: border-box;
         }
         header #status-bars {
             width: min(60%, 520px);
+        }
+        header #status-bars{
+            margin-left: auto;
+        }
+        header #warn {
+            display: flex;
+            width: min(60%, 150px);
+            align-items: center;
+            justify-content: center;
+        }
+        header #warn img{
+            display: none;
+            width: 32px;
+            height: 32px;
+            transform: scale(1);
+        }
+        header #warn img:hover {
+            cursor: pointer;
+            transform: scale(1.15);
         }
         #stat-list {
             display: flex;

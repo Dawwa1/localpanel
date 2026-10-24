@@ -13,7 +13,7 @@ class HomeController extends PageController
 {
     public function render(): Response
     {
-        $html = View::page('pages/home', [
+        $html = View::page('pages/home/home', [
             'nonce' => $this->nonce,
             'sites' => await(SiteModel::class::getAllSites()),
         ]);

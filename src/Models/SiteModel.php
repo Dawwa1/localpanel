@@ -3,11 +3,11 @@
 namespace Localpanel\Models;
 
 use InvalidArgumentException;
-use Localpanel\Models\DatabaseModel;
 use React\Promise\PromiseInterface;
+use React\Stream\ThroughStream;
+use Throwable;
 
 class SiteModel{
-// database representation of site
 
     public string $name;
     public string $ip;
@@ -88,15 +88,12 @@ class SiteModel{
      * @param string $name The name of the site.
      * @param string $ip The IP address of the site.
      * @param string $domain The domain name of the site.
-     * @param bool $hidden Whether the site is hidden.
-     * @param string $root_path The root path of the site.
-     * @param string $conf_path The configuration path of the site.
-     *
-     * @return PromiseInterface The created site object.
+     * @param array|null $dbData
+     * @return array|ThroughStream The created site object.
+     * @throws Throwable
      */
-    public static function createSite(string $name, string $ip, string $domain, bool $hidden, string $root_path, string $conf_path): PromiseInterface {
-        $database = DatabaseModel::getInstance();
-
+    public static function createSite(string $name, string $ip, string $domain, ?array $dbData = null): array|\React\Stream\ThroughStream
+    {
         $ip_regex = '/^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/';
 
         if ((!preg_match($ip_regex, $ip)) || (!filter_var($domain, FILTER_VALIDATE_DOMAIN))) {
@@ -107,17 +104,40 @@ class SiteModel{
             throw new InvalidArgumentException('Name and domain are required');
         }
 
-        return $database->createSite($name, $ip, $domain, $hidden, $root_path, $conf_path)
-            ->then(static function (array $siteData) {
-                return new self(
-                    $siteData['name'] ?? '',
-                    $siteData['ip'] ?? '',
-                    $siteData['dom'] ?? '',
-                    (bool)$siteData['hidden'] ?? false,
-                    $siteData['root_path'] ?? '',
-                    $siteData['conf_path'] ?? '',
-                    $siteData['created_at'] ?? ''
-                );
+        if (isset($dbData)) {
+            $database = DatabaseModel::getInstance();
+
+            $dbName = $dbData['db_name'];
+            $dbUser = $dbData['db_user'];
+            $dbPass = $dbData['db_pass'];
+
+            if (is_dir('/etc/apache2/sites-available')) {
+                $confPath = '/etc/apache2/sites-available/' . $name . '.conf';
+            } else {
+                $confPath = '/etc/httpd/conf.d/' . $name . '.conf';
+            }
+
+            $dbStatus = $database->createSite($name, $ip, $domain, $dbName, $dbUser, $dbPass, false, WEB_DIR_PATH . $name, $confPath);
+
+            if (!$dbStatus) {
+                throw new InvalidArgumentException('Failed to create site in the database');
+            }
+        }
+
+        return RunModel::createCmd($name, $ip, $domain);
+    }
+
+    public static function deleteSite(string $ip): PromiseInterface
+    {
+        $database = DatabaseModel::getInstance();
+
+        return $database->deleteSite($ip)
+            ->then(static function (bool $deleted) use ($ip) {
+                if (!$deleted) {
+                    throw new InvalidArgumentException('Failed to delete site from the database');
+                }
+
+                return RunModel::deleteCmd($ip);
             });
     }
 
